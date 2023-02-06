@@ -1,4 +1,4 @@
-The [https://wordpress.org/plugins/events-manager/](events-manager wordpress plugin) is hard to export data from.
+The [events-manager wordpress plugin](https://wordpress.org/plugins/events-manager/) is hard to export data from.
 
 This takes all its data, and gives you a CSV file you can export into google sheets.
 
