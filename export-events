@@ -2,7 +2,6 @@
 
 . "$HOME"/.config/bash.functions
 
-# regexp_replace(regexp_replace(event_attributes,"[,]","ADOTHAMCOMMAROBOT"),"[\n\r]","WALRUSDEVIANCEMETRIC"),
 mysql_func() {
     exfil-attrs "$1"
     mysql "$1" -e 'select
@@ -60,9 +59,3 @@ mysql_func calwp    wp "$tmpfile2" blog
     cat "$tmpfile1"
     cat "$tmpfile2"
 ) | sed 's/,NULL/,""/ig' | sed 's/")","/"),"/ig' >| /tmp/e11.csv
-
-# REPLACE TEXTS:
-#   '   YAR77A
-#   "   YAR77B
-#   ,   YAR77C
-#   \n  YAR77D
