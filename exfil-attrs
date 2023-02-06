@@ -1,0 +1,75 @@
+#!/usr/bin/env php
+<?php
+
+// USAGE: exfil-attrs [subdir of wordpress install]
+// connects to the wordpress's database
+// unserialized datas from *_em_events.event_attributes
+// and stores it in new table
+
+error_reporting(E_ALL);
+ini_set('display_errors',1);
+$wp_config = getenv("HOME")."/public_html/".$argv[1]."/wp-config.php";
+eval(implode(preg_grep("/(define|table_prefix)/",file($wp_config))));
+$fields = [ // with aliases
+    "point_person"   => [],
+    "org"            => ['organization'],
+    "sponsor"        => ['sponsoring_group'],
+    "relationship"   => [],
+    "phone"          => [],
+    "attendance"     => [],
+    "who_welcome"    => ['who_is_welcome'],
+    "admission_cost" => [],
+    "offering"       => [],
+    "amp_sound"      => ['amplified_sound'],
+    "av_needs"       => [],
+    "needs_quiet"    => [],
+    "alcohol_serve"  => ['alcohol_serving'],
+    "alcohol_sell"   => ['alcohol_selling'],
+];
+$field_def = 'varchar(200)';
+try {
+    $conn = new PDO("mysql:host=".DB_HOST.";dbname=".DB_NAME,DB_USER,DB_PASSWORD);
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+    // prep new table
+    $conn->exec("
+       drop table if exists ".$table_prefix."em_exfil_attrs;
+       create table ".$table_prefix."em_exfil_attrs (
+          event_id bigint(20) unsigned not null,
+          ".implode(" ".$field_def.",\n",array_keys($fields))." ".$field_def.",
+          message varchar(2048));"
+    );
+
+    // populate it with deserialized data
+    $new_row = $conn->prepare("insert into ".$table_prefix."em_exfil_attrs
+        (event_id, ".implode(",", array_keys($fields)).", message) values
+       (:event_id,:".implode(",:",array_keys($fields)).",:message)"
+    );
+    foreach ($conn->query("select event_id, event_attributes from ".$table_prefix."em_events") as $row) {
+        $a = (is_null($row[1]) ? [] : unserialize($row[1])); // old gross data
+        if (!is_array($a)) $a = [];
+        $b = array_merge(                                     // new clean data
+            ["event_id" => $row[0],"message" => ""],
+            array_fill_keys(array_keys($fields),"")
+        );
+        if (!is_array($a)) continue;
+        foreach ($a as $key => $val) {
+            $found = false;
+            $key_canon = str_replace([" ","?"],["_","" ],strtolower($key));
+            foreach (array_merge($fields,['message' => ['extra_info_added_afterwards']]) as $fkey => $fval) {
+                if (($key_canon == $fkey) || (in_array($key_canon,$fval))) {
+                    $found = true;
+                    $b[$fkey] = $val;
+                }
+            }
+            if (!$found) echo "WEIRD KEY ON ".$argv[1].".".$row[0].": $key\n";
+        }
+        $new_row->execute($b);
+    }
+
+} catch (PDOException $e) {
+    fwrite(STDERR, "Connection failed: ".$e->getMessage()."\n");
+}
+
+
+?>

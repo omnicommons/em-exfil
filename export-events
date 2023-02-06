@@ -1,0 +1,68 @@
+#!/bin/bash
+
+. "$HOME"/.config/bash.functions
+
+# regexp_replace(regexp_replace(event_attributes,"[,]","ADOTHAMCOMMAROBOT"),"[\n\r]","WALRUSDEVIANCEMETRIC"),
+mysql_func() {
+    exfil-attrs "$1"
+    mysql "$1" -e 'select
+      event_start, location_name,
+      concat(
+         "\"=HYPERLINK(\"https://omnicommons.org/'"$4"'/events/",event_slug,"/\";\"",
+         regexp_replace(
+               regexp_replace(
+                  regexp_replace(event_name,"[,]","YAR77C"),
+                  "'\''","YAR77A"
+               ),
+               '\''"'\'',"YAR77B"
+         ),"\")"
+      ),
+      regexp_replace(regexp_replace(e.post_content,"[,]","YAR77C"),"[\n\r]","YAR77D"),
+      user_nicename, user_email,
+      om.meta_value as owner_name,
+      oe.meta_value as owner_email,
+      if(op.meta_value is null or op.meta_value = "",x.phone,if(
+         x.phone is null or x.phone = "" or binary x.phone = binary op.meta_value,op.meta_value,
+         concat(op.meta_value," / ",x.phone))) as phone,
+      if(oo.meta_value is null or oo.meta_value = "",x.org,if(
+         x.org is null or x.org = "" or binary x.org = binary oo.meta_value,oo.meta_value,
+         concat(oo.meta_value," / ",x.org))) as org,
+      sponsor, relationship, point_person,
+      attendance, who_welcome, admission_cost, offering,
+      amp_sound, av_needs, needs_quiet, alcohol_serve, alcohol_sell,
+      if (event_status is null,"",concat("https://omnicommons.org/'"$4"'/events/",event_slug,"/")) as view,
+      if (event_status is null,"",concat("https://omnicommons.org/'"$4"'/wordpress/wp-admin/post.php?post=",e.post_id,"&action=edit")) as edit,
+      "'"$4"'" as wp, e.event_id, e.post_id, event_all_day, event_status,
+      recurrence, recurrence_id, recurrence_interval, recurrence_freq, recurrence_byday, recurrence_byweekno, null as exported
+   from '"$2"'_em_events as e
+   left join '"$2"'_em_locations as l on e.location_id=l.location_id
+   left join '"$2"'_users as u on e.event_owner=u.ID
+   left join '"$2"'_postmeta as om on e.post_id=om.post_id and om.meta_key="_event_owner_name"
+   left join '"$2"'_postmeta as oe on e.post_id=oe.post_id and oe.meta_key="_event_owner_email"
+   left join '"$2"'_postmeta as op on e.post_id=op.post_id and op.meta_key="Phone"
+   left join '"$2"'_postmeta as oo on e.post_id=oo.post_id and oo.meta_key="Organization"
+   left join '"$2"'_em_exfil_attrs as x on e.event_id=x.event_id
+   into outfile "'"$3"'"
+      fields enclosed by '\'\"\''
+             terminated by ","
+             escaped by ""
+      lines terminated by "\r\n"
+';}
+
+tmpfile1=/tmp/events/.$(uniq_token)
+tmpfile2=/tmp/events/.$(uniq_token)
+mysql_func occupywp bk "$tmpfile1" occupy
+mysql_func calwp    wp "$tmpfile2" blog
+
+
+(
+    echo '"when","where","what","description","submitter","email","owner","owner email","phone","org","sponsor","relationship","point person","attendance","who'\''s welcome?","admission cost","offering","amp sound","av needs","needs quiet","alcohol serve","alcohol sell","view","edit","wp","eid","pid","all day?","status","recur","rec id","interval","freq","by day","by week","exported '.$(date '+%F %a %R:%S').'"'
+    cat "$tmpfile1"
+    cat "$tmpfile2"
+) | sed 's/,NULL/,""/ig' | sed 's/")","/"),"/ig' >| /tmp/e11.csv
+
+# REPLACE TEXTS:
+#   '   YAR77A
+#   "   YAR77B
+#   ,   YAR77C
+#   \n  YAR77D
